@@ -1,5 +1,104 @@
 # Граф знань для рекомендаційної системи
 
+Проєкт будує графову модель MovieLens у Neo4j: користувачі оцінюють фільми,
+фільми належать до жанрів, а поверх цього виконуються пошукові, рекомендаційні
+та graph data science запити.
+
+## Структура проєкту
+
+- `docker-compose.yml` — запуск Neo4j Community з APOC і Graph Data Science;
+- `convert.py` — конвертація початкових `.dat` файлів MovieLens у CSV для Neo4j;
+- `import/` — каталог, який монтується в контейнер як `/var/lib/neo4j/import`;
+- `queries/part2_load.cypher` — створення constraints, індексів і завантаження даних;
+- `queries/part3.cypher` — основні запити до графа;
+- `queries/part4_supernodes.cypher` — пошук супервузлів;
+- `queries/part5_gds.cypher` — PageRank, Louvain і shortest path через GDS;
+- `README.md` — опис запуску і відповіді на питання.
+
+## Налаштування оточення
+
+### Передумови
+
+Потрібні:
+
+- Docker і Docker Compose;
+- Python 3;
+- MovieLens `.dat` файли: `movies.dat`, `ratings.dat`, `users.dat`;
+- достатньо RAM для Neo4j, бо для імпорту і GDS у `docker-compose.yml` виділено
+  heap до 4 GB і page cache 2 GB.
+
+Файли `movies.dat`, `ratings.dat` і `users.dat` треба покласти в корінь
+репозиторію, бо `convert.py` читає їх саме звідти.
+
+### Налаштування змінних середовища
+
+Змінні для Neo4j задані прямо в `docker-compose.yml`:
+
+```yaml
+NEO4J_AUTH: neo4j/password123
+NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+NEO4J_dbms_security_procedures_unrestricted: "apoc.*,gds.*"
+NEO4J_dbms_security_procedures_allowlist: "apoc.*,gds.*"
+NEO4J_server_memory_heap_initial__size: "2G"
+NEO4J_server_memory_heap_max__size: "4G"
+NEO4J_server_memory_pagecache_size: "2G"
+```
+
+Логін для Neo4j Browser і `cypher-shell`:
+
+- користувач: `neo4j`;
+- пароль: `password123`;
+- HTTP: `http://localhost:7474`;
+- Bolt: `bolt://localhost:7687`.
+
+Якщо потрібно змінити пароль або обсяг пам'яті, це робиться в
+`docker-compose.yml` до першого запуску контейнера. Якщо контейнер з уже
+створеним volume був запущений раніше, після зміни пароля може знадобитися
+видалити volume Neo4j.
+
+## Порядок запуску
+
+Команди виконуються з кореня репозиторію.
+
+### 1. Підготувати CSV для імпорту
+
+```bash
+mkdir -p import
+python3 convert.py
+```
+
+Після цього в `import/` мають з'явитися:
+
+- `movies.csv`;
+- `ratings.csv`;
+- `users.csv`.
+
+### 2. Запустити Neo4j
+
+```bash
+docker compose up -d
+```
+
+Перевірити, що контейнер працює:
+
+```bash
+docker compose ps
+```
+
+Neo4j Browser буде доступний за адресою `http://localhost:7474`.
+
+### 3. Зупинити контейнер
+
+```bash
+docker compose down
+```
+
+Якщо потрібно повністю видалити дані Neo4j і почати імпорт з нуля:
+
+```bash
+docker compose down -v
+```
+
 ## Відповіді на питання.
 
 ## Завдання 1
