@@ -86,4 +86,32 @@ RETURN community AS ClusterID,
 
 // Крок 5: видаляємо проєкцію та тимчасові ребра
 CALL gds.graph.drop('userSimilarity');
-MATCH ()-[sim:SIMILAR]-() DELETE sim;
+
+// 5.3. Найкоротший шлях між користувачами
+
+CALL gds.graph.project(
+  'userGraph',
+  'User',
+  { SIMILAR: { orientation: 'UNDIRECTED', properties: 'weight' } }
+)
+YIELD graphName, nodeCount, relationshipCount;
+// Для тесту знайдемо користувачів між якими точно є шлях
+MATCH (u1:User)-[r:SIMILAR]-(u2:User)
+RETURN u1.userId AS sourceUser, u2.userId AS targetUser, r.weight AS similarityWeight
+LIMIT 5;
+
+MATCH (source:User {userId: 3963}), (target:User {userId: 17})
+CALL gds.shortestPath.dijkstra.stream('userGraph', {
+  sourceNode: source,
+  targetNode: target
+})
+YIELD nodeIds
+// Перетворюємо масив внутрішніх ID на масив об'єктів вузлів
+WITH [nodeId IN nodeIds | gds.util.asNode(nodeId)] AS pathNodes
+//  Генеруємо індекси для пар сусідніх вузлів у шляху
+UNWIND range(0, size(pathNodes) - 2) AS i
+WITH pathNodes[i] AS node1, pathNodes[i+1] AS node2
+//  Знаходимо зв'язки між ними, які існують у базі
+MATCH (node1)-[r:SIMILAR]-(node2)
+// Повертаємо вузли та зв'язки — Browser автоматично намалює їх як граф
+RETURN node1, r, node2
